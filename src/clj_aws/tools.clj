@@ -138,6 +138,13 @@
   (to-map [r]
     {:association-id (.getAssociationId r)}))
 
+(extend-protocol Mappable
+  com.amazonaws.services.ec2.model.DescribeKeyPairsResult
+  (to-map [r] {:key-pairs (map to-map (.getKeyPairs r))})
+  com.amazonaws.services.ec2.model.KeyPairInfo
+  (to-map [r] {:key-name (.getKeyName r)
+               :key-fingerprint (.getKeyFingerprint r)}))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn associate-address
@@ -227,3 +234,17 @@
                       (filter #(not (.startsWith (key %) "aws:")) )
                       (map first))))
 
+(defn key-names [cred]
+  (->> (.describeKeyPairs (ec2-client cred)) to-map :key-pairs (map :key-name) set))
+
+(defn check-key [cred key-name source-key-name]
+    (let [source source
+        legal-keys (key-names cred)
+        key (cond (legal-keys key-name) key-name
+                  (legal-keys source-key-name) source-key-name
+                  :else (throw (Exception.
+                                (str "Key not found: "
+                                     (clojure.string/join
+                                      ","
+                                      (filter #(not (nil? %)) [key-name, source-key-name]))))))]
+      key))

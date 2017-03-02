@@ -43,7 +43,3 @@
 
 (def cred
   (merge (credentials "dashsoft") (endpoint "ec2" "eu-west-1")))
-
-
-
-

@@ -3,6 +3,7 @@
   (:use [clj-aws.ec2-client :only (ec2-client)]
         [clj-aws.waiters :only (wait-for-running wait-for-terminated wait-for-eip)]
         [clj-aws.tools :only (legal-tags
+                              check-key
                               #_describe-disable-api-termination
                               #_modify-disable-api-termination
                               associate-address
@@ -16,8 +17,10 @@
 
 ;; TODO - consider api-termination when resetting an instance
 
+;; TODO - verify that key-name is valid in the account, before terminating the instance..
+
 (defn reset-instance
-  [cred instance-id & [{:keys [image-id instance-type]}]]
+  [cred instance-id & [{:keys [image-id instance-type key-name]}]]
   (let [source (describe-instance cred instance-id)
         params (-> source
                    (select-keys [:private-ip-address :placement :key-name :subnet-id :instance-type :image])
@@ -25,6 +28,7 @@
                    (merge {:min-count          1
                            :max-count          1
                            :security-group-ids (map :group-id (source :security-groups))
+                           :key-name           (check-key cred key-name (source :key-name))
                            :image-id           (if image-id image-id (source :image))
                            :instance-type      (if instance-type instance-type (source :instance-type))}))
         terminating (do
